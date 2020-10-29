@@ -64,6 +64,13 @@ public class Controller implements Initializable {
         }
     }
 
+    public String openRenameDialog(String oldName) {
+        TextInputDialog dialog = new TextInputDialog(oldName);
+        dialog.setTitle("Rename");
+        dialog.setContentText("Enter new filename:");
+        Optional<String> result = dialog.showAndWait();
+        return result.orElse(null);
+    }
 
     public void initialize(URL location, ResourceBundle resources) {
         uploadButton.disableProperty()
@@ -124,7 +131,12 @@ public class Controller implements Initializable {
     }
 
     public void delete() {
-       client.delete("");
+        loadingInProgress.set(true);
+
+        client.delete(storageFilesListView.getSelectionModel().getSelectedItem()).thenAccept(files -> {
+            Platform.runLater(() -> setFilesListView(files));
+            loadingInProgress.set(false);
+        });
     }
 
     public void download() {
@@ -139,7 +151,19 @@ public class Controller implements Initializable {
     }
 
     public void rename() {
-       client.rename("","");  //заглушка
+        String fileName = storageFilesListView.getSelectionModel().getSelectedItem();
+        String newFileName = openRenameDialog(fileName);
+        if (newFileName != null) {
+            if (!isFilenameAcceptable(newFileName)) {
+                showAlert(WARNING_TITLE, "Unacceptable filename.");
+            } else {
+                loadingInProgress.set(true);
+                client.rename(fileName, newFileName).thenAccept(files -> {
+                    Platform.runLater(() -> setFilesListView(files));
+                    loadingInProgress.set(false);
+                });
+            }
+        }
     }
 
     private void setFilesListView(List<String> listFiles) {
@@ -153,5 +177,17 @@ public class Controller implements Initializable {
         alert.showAndWait();
     }
 
-
+    private boolean isFilenameAcceptable(String fileName) {
+        return !(fileName.length() == 0
+                || fileName.contains("<")
+                || fileName.contains(">")
+                || fileName.contains(":")
+                || fileName.contains("|")
+                || fileName.contains("/")
+                || fileName.contains("\\")
+                || fileName.contains("*")
+                || fileName.contains("?")
+                || fileName.endsWith("\\s")
+                || fileName.endsWith("."));
+    }
 }
