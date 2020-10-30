@@ -34,7 +34,11 @@ public class MainHandler extends ChannelHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (msg instanceof ListFilesRequest) {
             handleListFilesRequest(ctx, (ListFilesRequest) msg);
-        }  else if (msg instanceof DownloadRequest) {
+        } else if (msg instanceof DeleteRequest) {
+            handleDeleteRequest(ctx, (DeleteRequest) msg);
+        } else if (msg instanceof RenameRequest) {
+            handleRenameRequest(ctx, (RenameRequest) msg);
+        } else if (msg instanceof DownloadRequest) {
             handleDownloadRequest(ctx, (DownloadRequest) msg);
         } else if (msg instanceof UploadRequest) {
             handleUploadRequest(ctx, (UploadRequest) msg);
@@ -124,6 +128,50 @@ public class MainHandler extends ChannelHandlerAdapter {
         } catch (IOException e) {
             logger.warn("File wasn't uploaded.", e);
             ctx.writeAndFlush(new ErrorResponse(request.getId(), "File wasn't uploaded."));
+        }
+    }
+
+    private void handleRenameRequest(ChannelHandlerContext ctx, RenameRequest request) {
+        String username = request.getUsername();
+        Path fileName = rootDir.resolve(username).resolve(request.getFilename());
+        Path newFileName = rootDir.resolve(username).resolve(request.getNewFileName());
+
+        if (!Files.exists(fileName)) {
+            ctx.writeAndFlush(new ErrorResponse(
+                    request.getId(),
+                    String.format("File %s doesn't exist.", fileName.toString())));
+        } else if (Files.exists(newFileName)) {
+            ctx.writeAndFlush(new ErrorResponse(
+                    request.getId(),
+                    String.format("File %s already exist.", newFileName)
+            ));
+        } else {
+            try {
+                Files.move(fileName, newFileName);
+
+                sendListFileResponse(ctx, request.getId(), username);
+            } catch (IOException e) {
+                logger.warn("File wasn't renamed", e);
+                ctx.writeAndFlush(new ErrorResponse(request.getId(), "File wasn't renamed"));
+            }
+        }
+
+    }
+
+    private void handleDeleteRequest(ChannelHandlerContext ctx, DeleteRequest request) {
+        String username = request.getUsername();
+        Path fileName = rootDir.resolve(username).resolve(request.getFilename());
+        if (!Files.exists(fileName)) {
+            ctx.writeAndFlush(new ErrorResponse(request.getId(), "File isn't found."));
+        } else {
+            try {
+                Files.delete(fileName);
+
+                sendListFileResponse(ctx, request.getId(), username);
+            } catch (IOException e) {
+                logger.warn("File wasn't deleted.", e);
+                ctx.writeAndFlush(new ErrorResponse(request.getId(), "File wasn't deleted."));
+            }
         }
     }
 

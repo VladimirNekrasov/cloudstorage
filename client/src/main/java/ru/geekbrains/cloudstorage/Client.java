@@ -84,7 +84,18 @@ public class Client {
     }
 
     public CompletableFuture<List<String>> delete(String fileName) {
-       return null; //логика удаления файла
+        return CompletableFuture.supplyAsync(() -> {
+            connect();
+
+            try (ObjectEncoderOutputStream ous = new ObjectEncoderOutputStream(socket.getOutputStream());
+                 ObjectDecoderInputStream ois = new ObjectDecoderInputStream(socket.getInputStream())) {
+                ous.writeObject(new DeleteRequest(userName, fileName));
+
+                return handleResponse(ois.readObject());
+            } catch (IOException | ClassNotFoundException e) {
+                throw new RuntimeException("Server is unable", e);
+            }
+        }, executorService);
     }
 
     private List<String> handleResponse(Object response) {
@@ -149,6 +160,17 @@ public class Client {
     }
 
     public CompletableFuture<List<String>> rename(String fileName, String newFileName) {
-       return null; //логика переименования файла
+        return CompletableFuture.supplyAsync(() -> {
+            connect();
+
+            try (ObjectEncoderOutputStream ous = new ObjectEncoderOutputStream(socket.getOutputStream());
+                 ObjectDecoderInputStream ois = new ObjectDecoderInputStream(socket.getInputStream())) {
+                ous.writeObject(new RenameRequest(userName, fileName, newFileName));
+
+                return handleResponse(ois.readObject());
+            } catch (IOException | ClassNotFoundException e) {
+                throw new RuntimeException("Server is unable", e);
+            }
+        }, executorService);
     }
 }
